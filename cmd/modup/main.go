@@ -13,8 +13,8 @@ import (
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/semver"
 
-	"github/saltfishpr/tools/pkg/mod"
-	"github/saltfishpr/tools/pkg/util"
+	"github.com/saltfishpr/tools/pkg/mod"
+	"github.com/saltfishpr/tools/pkg/util"
 )
 
 var (
@@ -29,7 +29,7 @@ func init() {
 	flag.BoolVar(&indirect, "indirect", false, "include indirect dependencies")
 	flag.CommandLine.Init("modup", flag.ExitOnError)
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: modup [flags] <mod-file>\n")
+		fmt.Fprintf(os.Stderr, "usage: modup [flags] <path>\n")
 		flag.PrintDefaults()
 	}
 }
@@ -38,7 +38,7 @@ func main() {
 	flag.Parse()
 
 	if flag.NArg() != 1 {
-		log.Fatal("usage: modup [flags] <mod-file>")
+		log.Fatal("usage: modup [flags] <path>")
 	}
 	target := flag.Arg(0)
 	if info, err := os.Stat(target); err == nil && info.IsDir() {
@@ -147,6 +147,11 @@ func findLatestCompatible(depModPath, depModVersion, goVersion string) (string, 
 		if err != nil {
 			log.Errorf("get mod file %s@%s failed: %v", depModPath, ver, err)
 			continue
+		}
+
+		if f.Go == nil {
+			log.Warnf("mod %s@%s has no go version, skipping this package", depModPath, ver)
+			return depModVersion, nil
 		}
 
 		if isCompatible(goVersion, f.Go.Version) {

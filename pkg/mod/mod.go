@@ -13,6 +13,8 @@ import (
 	"golang.org/x/mod/semver"
 )
 
+var goProxy = getGoProxy()
+
 var defaultClient *http.Client = &http.Client{
 	Timeout: 3 * time.Second,
 }
@@ -22,16 +24,12 @@ func SetDefaultClient(c *http.Client) {
 }
 
 func ListVersions(modulePath string) ([]string, error) {
-	url := fmt.Sprintf("%s/%s/@v/list", getGoProxy(), modulePath)
+	url := fmt.Sprintf("%s/%s/@v/list", goProxy, modulePath)
 	resp, err := defaultClient.Get(url)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -45,16 +43,12 @@ func ListVersions(modulePath string) ([]string, error) {
 }
 
 func GetModFile(modulePath, version string) (*modfile.File, error) {
-	url := fmt.Sprintf("%s/%s/@v/%s.mod", getGoProxy(), modulePath, version)
+	url := fmt.Sprintf("%s/%s/@v/%s.mod", goProxy, modulePath, version)
 	resp, err := defaultClient.Get(url)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {

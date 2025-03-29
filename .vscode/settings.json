@@ -1,5 +1,5 @@
 {
     "gopls": {
-        "formatting.local": "github/saltfishpr/tools"
+        "formatting.local": "github.com/saltfishpr/tools"
     }
 }
