@@ -3,13 +3,12 @@ package main
 import (
 	"bytes"
 	"errors"
-	"flag"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/charmbracelet/log"
+	"github.com/spf13/cobra"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/semver"
 
@@ -17,34 +16,38 @@ import (
 	"github.com/saltfishpr/tools/pkg/util"
 )
 
+var version string
+
 var (
 	write    bool
-	verbose  bool
 	indirect bool
 )
 
-func init() {
-	flag.BoolVar(&write, "w", false, "write result to (source) file instead of stdout")
-	flag.BoolVar(&verbose, "v", false, "verbose mode")
-	flag.BoolVar(&indirect, "indirect", false, "include indirect dependencies")
-	flag.CommandLine.Init("modup", flag.ExitOnError)
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: modup [flags] <path>\n")
-		flag.PrintDefaults()
-	}
-}
-
 func main() {
-	flag.Parse()
+	rootCmd := &cobra.Command{
+		Use:     "modup [-w] [-indirect] <path>",
+		Short:   "Upgrade Go module dependencies",
+		Long:    "Upgrade Go module dependencies to the latest compatible version.",
+		Args:    cobra.ExactArgs(1),
+		Version: version,
 
-	if flag.NArg() != 1 {
-		log.Fatal("usage: modup [flags] <path>")
+		DisableFlagsInUseLine: true,
+
+		Run: func(cmd *cobra.Command, args []string) {
+			target := args[0]
+			if info, err := os.Stat(target); err == nil && info.IsDir() {
+				target = filepath.Join(target, "go.mod")
+			}
+			if err := run(target, nil, os.Stdout); err != nil {
+				log.Fatal(err)
+			}
+		},
 	}
-	target := flag.Arg(0)
-	if info, err := os.Stat(target); err == nil && info.IsDir() {
-		target = filepath.Join(target, "go.mod")
-	}
-	if err := run(target, nil, os.Stdout); err != nil {
+
+	rootCmd.Flags().BoolVarP(&write, "write", "w", false, "write result to (source) file instead of stdout")
+	rootCmd.Flags().BoolVar(&indirect, "indirect", false, "upgrade indirect dependencies")
+
+	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
 }

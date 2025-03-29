@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"go/token"
 	"io"
@@ -17,77 +16,77 @@ import (
 	"github.com/dave/dst/decorator"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
+	"github.com/spf13/cobra"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/imports"
 )
 
-var (
-	write   bool
-	verbose bool
-)
+var version string
 
-func init() {
-	flag.BoolVar(&write, "w", false, "write result to (source) file instead of stdout")
-	flag.BoolVar(&verbose, "v", false, "verbose mode")
-	flag.CommandLine.Init("sortimports", flag.ExitOnError)
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: sortimports [flags] <project-path>\n")
-		flag.PrintDefaults()
-	}
-}
+var write bool
 
 func main() {
-	flag.Parse()
+	rootCmd := &cobra.Command{
+		Use:     "sortimports [-w] <project-path>",
+		Short:   "Sort Go imports",
+		Long:    "Sort Go imports into standard library, third-party, and local imports groups.",
+		Args:    cobra.ExactArgs(1),
+		Version: version,
 
-	if flag.NArg() != 1 {
-		log.Fatal("usage: sortimports [flags] <project-path>")
+		DisableFlagsInUseLine: true,
+
+		Run: func(cmd *cobra.Command, args []string) {
+			projectDir := args[0]
+
+			modPath := filepath.Join(projectDir, "go.mod")
+			modData, err := os.ReadFile(modPath)
+			if err != nil {
+				log.Fatalf("Error reading go.mod: %v\n", err)
+			}
+
+			modFile, err := modfile.Parse("go.mod", modData, nil)
+			if err != nil {
+				log.Fatalf("Error parsing go.mod: %v\n", err)
+			}
+			modulePrefix := modFile.Module.Mod.Path
+
+			err = filepath.Walk(projectDir, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if info.IsDir() {
+					return nil
+				}
+				if !isGoFile(info) {
+					return nil
+				}
+				if err := processGoFile(path, nil, os.Stdout, modulePrefix); err != nil {
+					return fmt.Errorf("Error processing %s: %w\n", path, err)
+				}
+				return nil
+			})
+			if err != nil {
+				log.Fatalf("Error processing files: %+v\n", err)
+			}
+		},
 	}
-	projectDir := flag.Arg(0)
 
-	modPath := filepath.Join(projectDir, "go.mod")
-	modData, err := os.ReadFile(modPath)
-	if err != nil {
-		log.Fatalf("Error reading go.mod: %v\n", err)
+	rootCmd.Flags().BoolVarP(&write, "write", "w", false, "write result to (source) file instead of stdout")
+
+	if err := rootCmd.Execute(); err != nil {
+		log.Fatal(err)
 	}
-
-	modFile, err := modfile.Parse("go.mod", modData, nil)
-	if err != nil {
-		log.Fatalf("Error parsing go.mod: %v\n", err)
-	}
-	modulePrefix := modFile.Module.Mod.Path
-
-	if err := process(projectDir, modulePrefix); err != nil {
-		log.Fatalf("Error processing files: %+v\n", err)
-	}
-}
-
-func process(rootDir, modulePath string) error {
-	return filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if !isGoFile(info) {
-			return nil
-		}
-		if err := processGoFile(path, nil, os.Stdout, modulePath); err != nil {
-			return fmt.Errorf("Error processing %s: %w\n", path, err)
-		}
-		return nil
-	})
-}
-
-func isGoFile(f os.FileInfo) bool {
-	name := f.Name()
-	return !f.IsDir() && !strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".go")
 }
 
 type importGroup struct {
 	name    string
 	prefix  string
 	imports []*dst.ImportSpec
+}
+
+func isGoFile(f os.FileInfo) bool {
+	name := f.Name()
+	return !f.IsDir() && !strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".go")
 }
 
 func processGoFile(filePath string, in io.Reader, out io.Writer, modulePath string) error {
@@ -194,9 +193,6 @@ func processGoFile(filePath string, in io.Reader, out io.Writer, modulePath stri
 	}
 
 	if bytes.Equal(src, res.Bytes()) {
-		if verbose {
-			log.Infof("No changes to %s\n", filePath)
-		}
 		return nil
 	}
 
