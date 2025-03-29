@@ -82,12 +82,12 @@ func run(filename string, in io.Reader, out io.Writer) error {
 	}
 
 	for _, dep := range deps {
-		log.Infof("checking %s %s", dep.Mod.Path, dep.Mod.Version)
 		latest, err := findLatestCompatible(dep.Mod.Path, dep.Mod.Version, currentGoVersion)
 		if err != nil {
 			continue
 		}
 		if latest != "" && latest != dep.Mod.Version {
+			log.Infof("updating %s from %s to %s", dep.Mod.Path, dep.Mod.Version, latest)
 			dep.Syntax.Token[1] = latest
 		}
 	}
@@ -98,10 +98,7 @@ func run(filename string, in io.Reader, out io.Writer) error {
 	}
 
 	if bytes.Equal(data, content) {
-		if verbose {
-			log.Info("no changes")
-		}
-		return nil
+		return nil // no changes
 	}
 
 	if write {
@@ -136,11 +133,16 @@ func findLatestCompatible(depModPath, depModVersion, goVersion string) (string, 
 
 	for _, ver := range versions {
 		if !semver.IsValid(ver) {
+			log.Warnf("invalid version %s for %s", ver, depModPath)
 			continue
 		}
 
+		if semver.Compare(ver, depModVersion) <= 0 {
+			break // 已经是最新版本了
+		}
+
 		if semver.Major(ver) != depModMajor {
-			continue
+			break // 大版本不匹配
 		}
 
 		f, err := mod.GetModFile(depModPath, ver)

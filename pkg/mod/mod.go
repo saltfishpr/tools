@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"slices"
 	"strings"
 	"time"
 
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/semver"
-)
 
-var goProxy = getGoProxy()
+	"github.com/charmbracelet/log"
+
+	"github.com/saltfishpr/tools/pkg/util"
+)
 
 var defaultClient *http.Client = &http.Client{
 	Timeout: 3 * time.Second,
@@ -23,6 +24,7 @@ func SetDefaultClient(c *http.Client) {
 	defaultClient = c
 }
 
+// ListVersions lists all versions of a module. Sorts the versions in descending order by semver.
 func ListVersions(modulePath string) ([]string, error) {
 	url := fmt.Sprintf("%s/%s/@v/list", goProxy, modulePath)
 	resp, err := defaultClient.Get(url)
@@ -42,6 +44,7 @@ func ListVersions(modulePath string) ([]string, error) {
 	return versions, nil
 }
 
+// GetLatestVersion returns the go.mod file of a module.
 func GetModFile(modulePath, version string) (*modfile.File, error) {
 	url := fmt.Sprintf("%s/%s/@v/%s.mod", goProxy, modulePath, version)
 	resp, err := defaultClient.Get(url)
@@ -63,13 +66,13 @@ func GetModFile(modulePath, version string) (*modfile.File, error) {
 	return f, nil
 }
 
+var goProxy = getGoProxy()
+
 func getGoProxy() string {
-	proxy := os.Getenv("GOPROXY")
-	if proxy == "" {
-		return "https://proxy.golang.org"
+	proxy, err := util.GetGoProxy()
+	if err != nil {
+		log.Errorf("get go proxy from env error: %v", err)
 	}
-	if i := strings.Index(proxy, ","); i > 0 {
-		return proxy[:i]
-	}
+	log.Infof("using go proxy: %s", proxy)
 	return proxy
 }

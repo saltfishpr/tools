@@ -2,9 +2,31 @@ package util
 
 import (
 	"fmt"
+	"os/exec"
 	"strconv"
 	"strings"
 )
+
+func GetGoProxy() (string, error) {
+	proxy := "https://proxy.golang.org"
+	cmd := exec.Command("go", "env", "GOPROXY")
+	out, err := cmd.Output()
+	if err != nil {
+		return proxy, nil
+	}
+	proxyEnv := strings.TrimSpace(string(out))
+	if proxyEnv == "" {
+		return proxy, nil
+	}
+	return firstGoProxy(proxyEnv), nil
+}
+
+func firstGoProxy(proxy string) string {
+	if i := strings.Index(proxy, ","); i > 0 {
+		return proxy[:i]
+	}
+	return proxy
+}
 
 func ParseGoVersion(version string) (major, minor, patch int, err error) {
 	parts := strings.Split(version, ".")
