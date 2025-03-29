@@ -98,7 +98,8 @@ func run(filename string, in io.Reader, out io.Writer) error {
 	}
 
 	if bytes.Equal(data, content) {
-		return nil // no changes
+		log.Info("no changes")
+		return nil
 	}
 
 	if write {
@@ -143,6 +144,10 @@ func findLatestCompatible(depModPath, depModVersion, goVersion string) (string, 
 
 		if semver.Major(ver) != depModMajor {
 			break // 大版本不匹配
+		}
+
+		if semver.Prerelease(ver) != "" {
+			continue // 非稳定版本
 		}
 
 		f, err := mod.GetModFile(depModPath, ver)
