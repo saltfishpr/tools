@@ -2,12 +2,12 @@ module github.com/saltfishpr/tools
 
 go 1.22.0
 
-toolchain go1.23.4
+toolchain go1.24.1
 
 require (
 	github.com/charmbracelet/log v0.4.1
 	github.com/dave/dst v0.27.3
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.49.1
 	golang.org/x/mod v0.23.0
 	golang.org/x/tools v0.30.0
