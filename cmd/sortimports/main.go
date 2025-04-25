@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -25,6 +26,7 @@ var version string
 var (
 	write  bool
 	module string
+	staged bool
 )
 
 func main() {
@@ -53,6 +55,15 @@ func main() {
 				module = modFile.Module.Mod.Path
 			}
 
+			var stagedFiles []string
+			if staged {
+				var err error
+				stagedFiles, err = getStagedFiles()
+				if err != nil {
+					return errors.WithStack(err)
+				}
+			}
+
 			return filepath.Walk(projectDir, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
@@ -61,6 +72,9 @@ func main() {
 					return nil
 				}
 				if !isGoFile(info) {
+					return nil
+				}
+				if staged && !lo.Contains(stagedFiles, path) {
 					return nil
 				}
 				if err := processGoFile(path, nil, os.Stdout, module); err != nil {
@@ -72,7 +86,8 @@ func main() {
 	}
 
 	rootCmd.Flags().BoolVarP(&write, "write", "w", false, "write result to (source) file instead of stdout")
-	rootCmd.Flags().StringVar(&module, "module", "m", "specify the module manually")
+	rootCmd.Flags().StringVarP(&module, "module", "m", "", "specify the module manually")
+	rootCmd.Flags().BoolVar(&staged, "staged", true, "only process git staged files")
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalf("Error executing command: %+v\n", err)
@@ -91,6 +106,8 @@ func isGoFile(f os.FileInfo) bool {
 }
 
 func processGoFile(filePath string, in io.Reader, out io.Writer, modulePath string) error {
+	log.Info("Processing file", "file", filePath)
+
 	if in == nil {
 		f, err := os.Open(filePath)
 		if err != nil {
@@ -219,4 +236,16 @@ func processGoFile(filePath string, in io.Reader, out io.Writer, modulePath stri
 
 func isStandardLibraryImport(importPath string) bool {
 	return !strings.Contains(importPath, ".")
+}
+
+func getStagedFiles() ([]string, error) {
+	cmd := exec.Command("git", "diff", "--name-only", "--staged")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	files := strings.Split(string(output), "\n")
+	return lo.Filter(files, func(file string, _ int) bool {
+		return file != ""
+	}), nil
 }
