@@ -26,7 +26,7 @@ var (
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:     "modup [-w] [-indirect] <path>",
+		Use:     "modup [-w] [--indirect] [--proxy string] <path>",
 		Short:   "Upgrade Go module dependencies",
 		Long:    "Upgrade Go module dependencies to the latest compatible version.",
 		Args:    cobra.ExactArgs(1),
@@ -48,7 +48,7 @@ func main() {
 
 	rootCmd.Flags().BoolVarP(&write, "write", "w", false, "write result to (source) file instead of stdout")
 	rootCmd.Flags().BoolVar(&indirect, "indirect", false, "upgrade indirect dependencies")
-	rootCmd.Flags().StringVar(&proxy, "proxy", "", "set GOPROXY")
+	rootCmd.Flags().StringVar(&proxy, "proxy", "", "use the specified proxy instead of reading from the environment")
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalf("Error executing command: %+v\n", err)

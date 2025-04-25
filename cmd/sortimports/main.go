@@ -31,7 +31,7 @@ var (
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:     "sortimports [-w] [-m <module>] <project-path>",
+		Use:     "sortimports [-w] [-m module-path] [--staged] <project-path>",
 		Short:   "Sort Go imports",
 		Long:    "Sort Go imports into standard library, third-party, and local imports groups.",
 		Args:    cobra.ExactArgs(1),
@@ -86,7 +86,7 @@ func main() {
 	}
 
 	rootCmd.Flags().BoolVarP(&write, "write", "w", false, "write result to (source) file instead of stdout")
-	rootCmd.Flags().StringVarP(&module, "module", "m", "", "specify the module manually")
+	rootCmd.Flags().StringVarP(&module, "module", "m", "", "specify the project module path manually")
 	rootCmd.Flags().BoolVar(&staged, "staged", true, "only process git staged files")
 
 	if err := rootCmd.Execute(); err != nil {
