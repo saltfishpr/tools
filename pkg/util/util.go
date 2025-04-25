@@ -21,11 +21,14 @@ func GetGoProxy() (string, error) {
 	return firstGoProxy(proxyEnv), nil
 }
 
-func firstGoProxy(proxy string) string {
-	if i := strings.Index(proxy, ","); i > 0 {
-		return proxy[:i]
+func firstGoProxy(s string) string {
+	if i := strings.Index(s, ","); i > 0 {
+		return s[:i]
 	}
-	return proxy
+	if i := strings.Index(s, "|"); i > 0 {
+		return s[:i]
+	}
+	return s
 }
 
 func ParseGoVersion(version string) (major, minor, patch int, err error) {

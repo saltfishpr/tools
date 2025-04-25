@@ -2,10 +2,10 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"go/token"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -23,11 +23,15 @@ import (
 
 var version string
 
-var write bool
+var (
+	write  bool
+	module string
+	staged bool
+)
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:     "sortimports [-w] <project-path>",
+		Use:     "sortimports [-w] [-m module-path] [--staged] <project-path>",
 		Short:   "Sort Go imports",
 		Long:    "Sort Go imports into standard library, third-party, and local imports groups.",
 		Args:    cobra.ExactArgs(1),
@@ -35,22 +39,32 @@ func main() {
 
 		DisableFlagsInUseLine: true,
 
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			projectDir := args[0]
 
-			modPath := filepath.Join(projectDir, "go.mod")
-			modData, err := os.ReadFile(modPath)
-			if err != nil {
-				log.Fatalf("Error reading go.mod: %v\n", err)
+			if module == "" {
+				modPath := filepath.Join(projectDir, "go.mod")
+				modData, err := os.ReadFile(modPath)
+				if err != nil {
+					return errors.WithStack(err)
+				}
+				modFile, err := modfile.Parse("go.mod", modData, nil)
+				if err != nil {
+					return errors.WithStack(err)
+				}
+				module = modFile.Module.Mod.Path
 			}
 
-			modFile, err := modfile.Parse("go.mod", modData, nil)
-			if err != nil {
-				log.Fatalf("Error parsing go.mod: %v\n", err)
+			var stagedFiles []string
+			if staged {
+				var err error
+				stagedFiles, err = getStagedFiles()
+				if err != nil {
+					return errors.WithStack(err)
+				}
 			}
-			modulePrefix := modFile.Module.Mod.Path
 
-			err = filepath.Walk(projectDir, func(path string, info os.FileInfo, err error) error {
+			return filepath.Walk(projectDir, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
@@ -60,21 +74,23 @@ func main() {
 				if !isGoFile(info) {
 					return nil
 				}
-				if err := processGoFile(path, nil, os.Stdout, modulePrefix); err != nil {
-					return fmt.Errorf("Error processing %s: %w\n", path, err)
+				if staged && !lo.Contains(stagedFiles, path) {
+					return nil
+				}
+				if err := processGoFile(path, nil, os.Stdout, module); err != nil {
+					return err
 				}
 				return nil
 			})
-			if err != nil {
-				log.Fatalf("Error processing files: %+v\n", err)
-			}
 		},
 	}
 
 	rootCmd.Flags().BoolVarP(&write, "write", "w", false, "write result to (source) file instead of stdout")
+	rootCmd.Flags().StringVarP(&module, "module", "m", "", "specify the project module path manually")
+	rootCmd.Flags().BoolVar(&staged, "staged", false, "only process git staged files")
 
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error executing command: %+v\n", err)
 	}
 }
 
@@ -90,10 +106,12 @@ func isGoFile(f os.FileInfo) bool {
 }
 
 func processGoFile(filePath string, in io.Reader, out io.Writer, modulePath string) error {
+	log.Info("Processing file", "file", filePath)
+
 	if in == nil {
 		f, err := os.Open(filePath)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 		defer f.Close()
 		in = f
@@ -107,7 +125,7 @@ func processGoFile(filePath string, in io.Reader, out io.Writer, modulePath stri
 
 	src, err := io.ReadAll(in)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	// Process imports using golang.org/x/tools/imports
@@ -218,4 +236,16 @@ func processGoFile(filePath string, in io.Reader, out io.Writer, modulePath stri
 
 func isStandardLibraryImport(importPath string) bool {
 	return !strings.Contains(importPath, ".")
+}
+
+func getStagedFiles() ([]string, error) {
+	cmd := exec.Command("git", "diff", "--name-only", "--staged")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	files := strings.Split(string(output), "\n")
+	return lo.Filter(files, func(file string, _ int) bool {
+		return file != ""
+	}), nil
 }

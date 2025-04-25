@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/charmbracelet/log"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/semver"
@@ -21,11 +21,12 @@ var version string
 var (
 	write    bool
 	indirect bool
+	proxy    string
 )
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:     "modup [-w] [-indirect] <path>",
+		Use:     "modup [-w] [--indirect] [--proxy string] <path>",
 		Short:   "Upgrade Go module dependencies",
 		Long:    "Upgrade Go module dependencies to the latest compatible version.",
 		Args:    cobra.ExactArgs(1),
@@ -33,22 +34,24 @@ func main() {
 
 		DisableFlagsInUseLine: true,
 
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			target := args[0]
 			if info, err := os.Stat(target); err == nil && info.IsDir() {
 				target = filepath.Join(target, "go.mod")
 			}
-			if err := run(target, nil, os.Stdout); err != nil {
-				log.Fatal(err)
+			if proxy != "" {
+				mod.SetGoProxy(proxy)
 			}
+			return run(target, nil, os.Stdout)
 		},
 	}
 
 	rootCmd.Flags().BoolVarP(&write, "write", "w", false, "write result to (source) file instead of stdout")
 	rootCmd.Flags().BoolVar(&indirect, "indirect", false, "upgrade indirect dependencies")
+	rootCmd.Flags().StringVar(&proxy, "proxy", "", "use the specified proxy instead of reading from the environment")
 
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error executing command: %+v\n", err)
 	}
 }
 
@@ -56,7 +59,7 @@ func run(filename string, in io.Reader, out io.Writer) error {
 	if in == nil {
 		f, err := os.Open(filename)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 		defer f.Close()
 		in = f
@@ -64,12 +67,12 @@ func run(filename string, in io.Reader, out io.Writer) error {
 
 	data, err := io.ReadAll(in)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	f, err := modfile.Parse("go.mod", data, nil)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	currentGoVersion := f.Go.Version
 
@@ -97,7 +100,7 @@ func run(filename string, in io.Reader, out io.Writer) error {
 
 	content, err := f.Format()
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	if bytes.Equal(data, content) {
@@ -112,14 +115,14 @@ func run(filename string, in io.Reader, out io.Writer) error {
 		}
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 		defer f.Close()
 		out = f
 	}
 
 	if _, err := out.Write(content); err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	return nil

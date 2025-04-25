@@ -71,6 +71,12 @@ var (
 	goProxyOnce sync.Once
 )
 
+func SetGoProxy(proxy string) {
+	goProxyOnce.Do(func() {
+		goProxy = proxy
+	})
+}
+
 func getGoProxy() string {
 	goProxyOnce.Do(func() {
 		proxy, err := util.GetGoProxy()
