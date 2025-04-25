@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"go/token"
 	"io"
 	"os"
@@ -23,11 +22,14 @@ import (
 
 var version string
 
-var write bool
+var (
+	write  bool
+	module string
+)
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:     "sortimports [-w] <project-path>",
+		Use:     "sortimports [-w] [-m <module>] <project-path>",
 		Short:   "Sort Go imports",
 		Long:    "Sort Go imports into standard library, third-party, and local imports groups.",
 		Args:    cobra.ExactArgs(1),
@@ -35,22 +37,23 @@ func main() {
 
 		DisableFlagsInUseLine: true,
 
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			projectDir := args[0]
 
-			modPath := filepath.Join(projectDir, "go.mod")
-			modData, err := os.ReadFile(modPath)
-			if err != nil {
-				log.Fatalf("Error reading go.mod: %v\n", err)
+			if module == "" {
+				modPath := filepath.Join(projectDir, "go.mod")
+				modData, err := os.ReadFile(modPath)
+				if err != nil {
+					return errors.WithStack(err)
+				}
+				modFile, err := modfile.Parse("go.mod", modData, nil)
+				if err != nil {
+					return errors.WithStack(err)
+				}
+				module = modFile.Module.Mod.Path
 			}
 
-			modFile, err := modfile.Parse("go.mod", modData, nil)
-			if err != nil {
-				log.Fatalf("Error parsing go.mod: %v\n", err)
-			}
-			modulePrefix := modFile.Module.Mod.Path
-
-			err = filepath.Walk(projectDir, func(path string, info os.FileInfo, err error) error {
+			return filepath.Walk(projectDir, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
@@ -60,21 +63,19 @@ func main() {
 				if !isGoFile(info) {
 					return nil
 				}
-				if err := processGoFile(path, nil, os.Stdout, modulePrefix); err != nil {
-					return fmt.Errorf("Error processing %s: %w\n", path, err)
+				if err := processGoFile(path, nil, os.Stdout, module); err != nil {
+					return err
 				}
 				return nil
 			})
-			if err != nil {
-				log.Fatalf("Error processing files: %+v\n", err)
-			}
 		},
 	}
 
 	rootCmd.Flags().BoolVarP(&write, "write", "w", false, "write result to (source) file instead of stdout")
+	rootCmd.Flags().StringVar(&module, "module", "m", "specify the module manually")
 
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error executing command: %+v\n", err)
 	}
 }
 
@@ -93,7 +94,7 @@ func processGoFile(filePath string, in io.Reader, out io.Writer, modulePath stri
 	if in == nil {
 		f, err := os.Open(filePath)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 		defer f.Close()
 		in = f
@@ -107,7 +108,7 @@ func processGoFile(filePath string, in io.Reader, out io.Writer, modulePath stri
 
 	src, err := io.ReadAll(in)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	// Process imports using golang.org/x/tools/imports
