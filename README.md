@@ -5,6 +5,10 @@
 ## modup
 
 ```shell
+go install github.com/saltfishpr/tools/cmd/modup@latest
+```
+
+```shell
 > modup --help
 Upgrade Go module dependencies to the latest compatible version.
 
@@ -23,6 +27,10 @@ Flags:
 `--indirect`: 同时升级间接依赖。默认只升级直接依赖
 
 ## sortimports
+
+```shell
+go install github.com/saltfishpr/tools/cmd/sortimports@latest
+```
 
 ```shell
 > sortimports --help
