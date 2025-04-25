@@ -42,7 +42,7 @@ Usage:
 Flags:
   -h, --help            help for sortimports
   -m, --module string   specify the project module path manually
-      --staged          only process git staged files (default true)
+      --staged          only process git staged files
   -w, --write           write result to (source) file instead of stdout
 ```
 
@@ -52,5 +52,5 @@ Flags:
 - 三方包
 - 项目包
 
-`-m <module-path>`: 手动指定项目包路径
-`--staged`: 只处理暂存的 `.go` 文件，默认为 `true`，可以设置 `--staged=false` 处理全部文件
+`-m <module-path>`: 手动指定项目包路径。
+`--staged`: 只处理暂存的 `.go` 文件。

@@ -42,7 +42,7 @@ Usage:
 Flags:
   -h, --help            help for sortimports
   -m, --module string   specify the project module path manually
-      --staged          only process git staged files (default true)
+      --staged          only process git staged files
   -w, --write           write result to (source) file instead of stdout
 ```
 
@@ -53,4 +53,4 @@ Sort imports in all `.go` files in the project:
 - Project packages
 
 `-m <module-path>`: Manually specify the project module path.
-`--staged`: Only process staged `.go` files. Default is `true`. Set `--staged=false` to process all files.
+`--staged`: Only process staged `.go` files.

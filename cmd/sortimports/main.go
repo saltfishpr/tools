@@ -87,7 +87,7 @@ func main() {
 
 	rootCmd.Flags().BoolVarP(&write, "write", "w", false, "write result to (source) file instead of stdout")
 	rootCmd.Flags().StringVarP(&module, "module", "m", "", "specify the project module path manually")
-	rootCmd.Flags().BoolVar(&staged, "staged", true, "only process git staged files")
+	rootCmd.Flags().BoolVar(&staged, "staged", false, "only process git staged files")
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalf("Error executing command: %+v\n", err)
