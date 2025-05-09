@@ -40,7 +40,7 @@ Sort import statements into groups: standard library, third-party, and local imp
 
 - `--mode`: Specify file selection mode (`diff`: only changed files, `staged`: only staged files).
 - `-m`, `--module`: Manually specify the prefix for local imports.
-- `-w`, `--write`: Write sorted results to (source) file instead of stdout.
+- `-w`, `--write`: Write results to (source) file instead of stdout.
 
 ### Installation
 
