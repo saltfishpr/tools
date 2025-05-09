@@ -41,8 +41,8 @@ Usage:
 
 Flags:
   -h, --help            help for sortimports
+      --mode string     specify file selection mode (diff: changed files, staged: staged files)
   -m, --module string   specify the project module path manually
-      --staged          only process git staged files
   -w, --write           write result to (source) file instead of stdout
 ```
 
