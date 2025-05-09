@@ -26,12 +26,12 @@ var version string
 var (
 	write  bool
 	module string
-	staged bool
+	mode   string
 )
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:     "sortimports [-w] [-m module-path] [--staged] <project-path>",
+		Use:     "sortimports [-w] [-m string] [--mode string] <project-path>",
 		Short:   "Sort Go imports",
 		Long:    "Sort Go imports into standard library, third-party, and local imports groups.",
 		Args:    cobra.ExactArgs(1),
@@ -55,13 +55,11 @@ func main() {
 				module = modFile.Module.Mod.Path
 			}
 
-			var stagedFiles []string
-			if staged {
-				var err error
-				stagedFiles, err = getStagedFiles()
-				if err != nil {
-					return errors.WithStack(err)
-				}
+			log.Infof("current module is %s", module)
+
+			filteredFiles, err := getFilesByMode()
+			if err != nil {
+				return err
 			}
 
 			return filepath.Walk(projectDir, func(path string, info os.FileInfo, err error) error {
@@ -74,7 +72,7 @@ func main() {
 				if !isGoFile(info) {
 					return nil
 				}
-				if staged && !lo.Contains(stagedFiles, path) {
+				if mode != "" && !lo.Contains(filteredFiles, path) {
 					return nil
 				}
 				if err := processGoFile(path, nil, os.Stdout, module); err != nil {
@@ -87,7 +85,7 @@ func main() {
 
 	rootCmd.Flags().BoolVarP(&write, "write", "w", false, "write result to (source) file instead of stdout")
 	rootCmd.Flags().StringVarP(&module, "module", "m", "", "specify the project module path manually")
-	rootCmd.Flags().BoolVar(&staged, "staged", false, "only process git staged files")
+	rootCmd.Flags().StringVar(&mode, "mode", "", "specify file selection mode (diff: changed files, staged: staged files)")
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalf("Error executing command: %+v\n", err)
@@ -236,6 +234,33 @@ func processGoFile(filePath string, in io.Reader, out io.Writer, modulePath stri
 
 func isStandardLibraryImport(importPath string) bool {
 	return !strings.Contains(importPath, ".")
+}
+
+// 根据 mode 获取待处理的文件列表
+func getFilesByMode() ([]string, error) {
+	if mode == "" {
+		return nil, nil
+	}
+	switch mode {
+	case "staged":
+		return getStagedFiles()
+	case "diff":
+		return getDiffFiles()
+	default:
+		return nil, errors.New("unsupported mode")
+	}
+}
+
+func getDiffFiles() ([]string, error) {
+	cmd := exec.Command("git", "diff", "--name-only", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	files := strings.Split(string(output), "\n")
+	return lo.Filter(files, func(file string, _ int) bool {
+		return file != ""
+	}), nil
 }
 
 func getStagedFiles() ([]string, error) {

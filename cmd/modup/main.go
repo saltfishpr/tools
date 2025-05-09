@@ -19,16 +19,17 @@ import (
 var version string
 
 var (
-	write    bool
-	indirect bool
-	proxy    string
+	write     bool
+	indirect  bool
+	proxy     string
+	goVersion string
 )
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:     "modup [-w] [--indirect] [--proxy string] <path>",
-		Short:   "Upgrade Go module dependencies",
-		Long:    "Upgrade Go module dependencies to the latest compatible version.",
+		Use:     "modup [-w] [--indirect] [--proxy string] [-go string] <path>",
+		Short:   "Manage go module dependencies",
+		Long:    "Upgrade or Downgrade dependencies to the latest version compatible with the target Go version.",
 		Args:    cobra.ExactArgs(1),
 		Version: version,
 
@@ -49,6 +50,7 @@ func main() {
 	rootCmd.Flags().BoolVarP(&write, "write", "w", false, "write result to (source) file instead of stdout")
 	rootCmd.Flags().BoolVar(&indirect, "indirect", false, "upgrade indirect dependencies")
 	rootCmd.Flags().StringVar(&proxy, "proxy", "", "use the specified proxy instead of reading from the environment")
+	rootCmd.Flags().StringVar(&goVersion, "go", "", "target Go version to use for compatibility checks")
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalf("Error executing command: %+v\n", err)
@@ -74,7 +76,20 @@ func run(filename string, in io.Reader, out io.Writer) error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	currentGoVersion := f.Go.Version
+
+	currentGoVersion := goVersion
+	if currentGoVersion == "" {
+		currentGoVersion = f.Go.Version
+	}
+	f.Go.Syntax.Token[1] = currentGoVersion
+
+	_, cMinor, _, err := util.ParseGoVersion(currentGoVersion)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if cMinor < 21 {
+		f.Toolchain.Syntax.Token = nil // remove toolchain
+	}
 
 	var deps []*modfile.Require
 	for _, req := range f.Require {
@@ -142,10 +157,6 @@ func findLatestCompatible(depModPath, depModVersion, goVersion string) (string, 
 		if !semver.IsValid(ver) {
 			log.Warnf("invalid version %s for %s", ver, depModPath)
 			continue
-		}
-
-		if semver.Compare(ver, depModVersion) <= 0 {
-			break // 已经是最新版本了
 		}
 
 		if semver.Major(ver) != depModMajor {
