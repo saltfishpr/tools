@@ -31,7 +31,7 @@ var (
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:     "sortimports [-w] [-m module-path] [--staged] <project-path>",
+		Use:     "sortimports [-w] [-m string] [--mode string] <project-path>",
 		Short:   "Sort Go imports",
 		Long:    "Sort Go imports into standard library, third-party, and local imports groups.",
 		Args:    cobra.ExactArgs(1),
