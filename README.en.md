@@ -6,7 +6,7 @@
 
 Upgrade or downgrade dependencies to the latest version compatible with the target Go version.
 
-- `--go`: Specify the target Go version for compatibility checks.
+- `--go`: Specify the target Go version.
 - `--indirect`: Also upgrade indirect dependencies.
 - `--proxy`: Use the specified proxy instead of reading from environment variables.
 - `-w`, `--write`: Write results to (source) file instead of stdout.
