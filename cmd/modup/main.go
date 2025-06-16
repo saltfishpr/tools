@@ -88,7 +88,9 @@ func run(filename string, in io.Reader, out io.Writer) error {
 		return errors.WithStack(err)
 	}
 	if cMinor < 21 {
-		f.Toolchain.Syntax.Token = nil // remove toolchain
+		if f.Toolchain != nil {
+			f.Toolchain.Syntax.Token = nil // remove toolchain
+		}
 	}
 
 	var deps []*modfile.Require
