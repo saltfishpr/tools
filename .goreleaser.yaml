@@ -5,8 +5,21 @@ before:
     - go mod tidy
 
 builds:
-  - main: ./cmd/modup
-    id: modup
+  - id: modclean
+    main: ./cmd/modclean
+    binary: modclean
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    flags:
+      - -trimpath
+    ldflags:
+      - "-s -w -X main.version={{ .Version }}"
+  - id: modup
+    main: ./cmd/modup
     binary: modup
     env:
       - CGO_ENABLED=0
@@ -18,8 +31,8 @@ builds:
       - -trimpath
     ldflags:
       - "-s -w -X main.version={{ .Version }}"
-  - main: ./cmd/sortimports
-    id: sortimports
+  - id: sortimports
+    main: ./cmd/sortimports
     binary: sortimports
     env:
       - CGO_ENABLED=0
