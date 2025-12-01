@@ -81,16 +81,17 @@ func run(filename string, in io.Reader, out io.Writer) error {
 	if currentGoVersion == "" {
 		currentGoVersion = f.Go.Version
 	}
-	f.Go.Syntax.Token[1] = currentGoVersion
+
+	if err := f.AddGoStmt(currentGoVersion); err != nil {
+		return errors.WithStack(err)
+	}
 
 	_, cMinor, _, err := util.ParseGoVersion(currentGoVersion)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	if cMinor < 21 {
-		if f.Toolchain != nil {
-			f.Toolchain.Syntax.Token = nil // remove toolchain
-		}
+		f.DropToolchainStmt()
 	}
 
 	var deps []*modfile.Require
@@ -146,6 +147,7 @@ func run(filename string, in io.Reader, out io.Writer) error {
 }
 
 func findLatestCompatible(depModPath, depModVersion, goVersion string) (string, error) {
+	// 列出所有版本，按照 semver 降序
 	versions, err := mod.ListVersions(depModPath)
 	if err != nil {
 		return "", err
@@ -161,12 +163,12 @@ func findLatestCompatible(depModPath, depModVersion, goVersion string) (string, 
 			continue
 		}
 
-		if semver.Major(ver) != depModMajor {
-			break // 大版本不匹配
-		}
-
 		if semver.Prerelease(ver) != "" {
 			continue // 非稳定版本
+		}
+
+		if semver.Major(ver) != depModMajor {
+			continue // 大版本不匹配
 		}
 
 		f, err := mod.GetModFile(depModPath, ver)

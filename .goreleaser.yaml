@@ -5,19 +5,6 @@ before:
     - go mod tidy
 
 builds:
-  - id: modclean
-    main: ./cmd/modclean
-    binary: modclean
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - windows
-      - darwin
-    flags:
-      - -trimpath
-    ldflags:
-      - "-s -w -X main.version={{ .Version }}"
   - id: modup
     main: ./cmd/modup
     binary: modup
